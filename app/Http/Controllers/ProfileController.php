@@ -6,19 +6,26 @@ use App\Http\Requests\ProfileUpdateRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Redirect;
 use Illuminate\View\View;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
     /**
+     * Display the user's profile.
+     */
+    public function index(): View
+    {
+        return view('dashboard.profile.index');
+    }
+    /**
      * Display the user's profile form.
      */
-    public function edit(Request $request): View
+    public function edit(): View
     {
-        return view('profile.edit', [
-            'user' => $request->user(),
-        ]);
+        return view('dashboard.profile.edit');
     }
 
     /**
@@ -26,17 +33,45 @@ class ProfileController extends Controller
      */
     public function update(ProfileUpdateRequest $request): RedirectResponse
     {
-        $request->user()->fill($request->validated());
+        $validatedData = $request->validated();
+        $user = Auth::user();
 
-        if ($request->user()->isDirty('email')) {
-            $request->user()->email_verified_at = null;
+        try {
+            $imageName = $user->image;
+
+            if ($request->hasFile('image')) {
+                // Handle image upload
+                $image = $request->file('image');
+
+                // Delete old image if exists
+                if ($user->image) {
+                    Storage::delete('public/images/users/' . $user->image);
+                }
+
+                // Generate new image name
+                $imageName = $user->name . '_' . time() . '.' . $image->getClientOriginalExtension();
+
+                // Store new image
+                $image->storeAs('public/images/users/', $imageName);
+            }
+
+            // Update user data
+            $user->update([
+                'name' => $validatedData['name'],
+                'address' => $validatedData['address'],
+                'phone' => $validatedData['phone'],
+                'date_of_birth' => $validatedData['date_of_birth'],
+                'image' => $imageName,
+            ]);
+
+            return Redirect::route('profile.index')->with('status', 'profile-updated');
+        } catch (\Exception $e) {
+            Log::error('Profile update failed: ' . $e->getMessage());
+            return Redirect::route('profile.index')
+                ->with('status', 'profile-update-failed')
+                ->with('error', $e->getMessage());
         }
-
-        $request->user()->save();
-
-        return Redirect::route('profile.edit')->with('status', 'profile-updated');
     }
-
     /**
      * Delete the user's account.
      */
