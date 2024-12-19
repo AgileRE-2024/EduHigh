@@ -80,4 +80,36 @@ class DashboardController extends Controller
                 ->take(5)
                 ->get();
 
+            $upcomingAppointments = Appointment::with(['schedule.dosen.user'])
+                ->where('mahasiswa_id', $mahasiswaId)
+                ->whereHas('schedule', function ($query) {
+                    $query->where('schedule_date', '>=', now());
+                })
+                ->join('schedules', 'appointments.schedule_id', '=', 'schedules.id')
+                ->orderBy('schedules.schedule_date', 'asc')
+                ->orderBy('schedules.start_time', 'asc')
+                ->select('appointments.*')
+                ->take(5)
+                ->get();
 
+            $proposalStatus = SeminarProposal::where('mahasiswa_id', $mahasiswaId)
+                ->latest()
+                ->first();
+
+            $resultSeminarStatus = ResultSeminar::where('mahasiswa_id', $mahasiswaId)
+                ->latest()
+                ->first();
+
+
+
+            return view('dashboard.mahasiswa.index', compact(
+                'supervisionStatus',
+                'consultationCount',
+                'latestConsultations',
+                'upcomingAppointments',
+                'proposalStatus',
+                'resultSeminarStatus'
+            ));
+        }
+    }
+}
