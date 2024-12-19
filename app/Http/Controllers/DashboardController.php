@@ -5,13 +5,11 @@ namespace App\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Models\Appointment;
 use App\Models\Logbook;
+use App\Models\ResultSeminar;
 use App\Models\Schedule;
 use App\Models\SeminarProposal;
 use App\Models\SuperVision;
-use Illuminate\Http\Request;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class DashboardController extends Controller
 {
@@ -65,7 +63,21 @@ class DashboardController extends Controller
                 "upcomingAppointments"
             ));
         } else {
-            return view('dashboard.mahasiswa.index');
-        }
-    }
-}
+            $mahasiswaId = $user->mahasiswa->id;
+            $supervisionStatus = SuperVision::where('mahasiswa_id', $mahasiswaId)
+                ->where('status', 'approved')
+                ->with('dosen.user')
+                ->get();
+            $consultationCount = Logbook::whereHas('superVision', function ($query) use ($mahasiswaId) {
+                $query->where('mahasiswa_id', $mahasiswaId);
+            })->count();
+
+            $latestConsultations = Logbook::whereHas('superVision', function ($query) use ($mahasiswaId) {
+                $query->where('mahasiswa_id', $mahasiswaId);
+            })
+                ->with('superVision.dosen.user')
+                ->orderBy('date', 'desc')
+                ->take(5)
+                ->get();
+
+
